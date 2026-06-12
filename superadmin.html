@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0e14">
+<link rel="icon" href="icons/icon-192.png">
+<title>Superadmin | TIMECARD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e14; --surface: #111720; --border: #1e2d3d;
+    --text: #cdd9e5; --muted: #768390; --subtle: #22303e;
+    --green: #3fb950; --blue: #79c0ff; --yellow: #e3b341; --red: #ff7b72;
+    --accent: #388bfd; --purple: #b57aff;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; }
+  #app { max-width: 860px; margin: 0 auto; padding: 0 16px 48px; }
+  button { font-family: inherit; cursor: pointer; border: none; outline: none; transition: all .14s; }
+  button:active { transform: scale(.97); }
+
+  /* ヘッダー */
+  .hdr { padding: 20px 0 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .hdr-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--purple); }
+  .hdr-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .badge-super { background: rgba(181,122,255,.12); border: 1px solid rgba(181,122,255,.3); border-radius: 6px; padding: 3px 10px; font-size: 11px; color: var(--purple); }
+
+  /* ログイン画面 */
+  .login-wrap { max-width: 360px; margin: 80px auto 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .txt-input { width: 100%; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 15px; font-family: inherit; outline: none; transition: border .15s; margin-bottom: 12px; }
+  .txt-input:focus { border-color: var(--accent); }
+  .btn-primary { width: 100%; padding: 13px; border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit; background: var(--purple); color: #fff; cursor: pointer; border: none; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .err-msg { font-size: 12px; color: var(--red); margin-bottom: 10px; display: none; }
+
+  /* サマリーカード */
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .summary-label { font-size: 10px; color: var(--muted); letter-spacing: .08em; margin-bottom: 6px; }
+  .summary-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); }
+
+  /* テーブル */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .table-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 10px; color: var(--muted); letter-spacing: .08em; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
+  td { font-size: 13px; color: var(--text); padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* プランバッジ */
+  .plan-badge { display: inline-block; border-radius: 5px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .plan-trial  { background: rgba(227,179,65,.12); border: 1px solid rgba(227,179,65,.3); color: var(--yellow); }
+  .plan-active { background: rgba(63,185,80,.12);  border: 1px solid rgba(63,185,80,.3);  color: var(--green); }
+  .plan-suspended { background: rgba(255,123,114,.12); border: 1px solid rgba(255,123,114,.3); color: var(--red); }
+
+  /* アクションボタン */
+  .btn-action { background: rgba(56,139,253,.1); border: 1px solid rgba(56,139,253,.25); color: var(--accent); border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer; margin-right: 4px; }
+  .btn-danger  { background: rgba(255,123,114,.1); border: 1px solid rgba(255,123,114,.25); color: var(--red); border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer; }
+
+  /* タブ */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 18px; font-size: 12px; font-family: inherit; color: var(--muted); margin-bottom: -1px; cursor: pointer; }
+  .tab.active { color: var(--text); border-bottom-color: var(--purple); }
+
+  /* モーダル */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; }
+  .modal-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+  .modal-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  select.txt-input { appearance: none; }
+
+  /* ローディング */
+  .loading { text-align: center; color: var(--muted); font-size: 13px; padding: 32px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.2); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+
+  /* トライアル期限切れ警告 */
+  .warn { color: var(--red); font-size: 11px; }
+  .soon { color: var(--yellow); font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── ログイン画面 ── -->
+  <div id="screen-login">
+    <div style="text-align:center;padding:48px 0 28px">
+      <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--purple)">TIMECARD</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">Superadmin</div>
+    </div>
+    <div class="login-wrap">
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">管理者メールアドレス</div>
+        <input id="login-email" class="txt-input" type="email" placeholder="メールアドレス" autocomplete="email">
+        <input id="login-pass"  class="txt-input" type="password" placeholder="パスワード" autocomplete="current-password">
+        <div id="login-err" class="err-msg">メールアドレスまたはパスワードが違います</div>
+        <button id="login-btn" class="btn-primary" onclick="doLogin()">ログイン</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ダッシュボード ── -->
+  <div id="screen-dashboard" style="display:none">
+    <div class="hdr">
+      <div>
+        <div class="hdr-title">Superadmin</div>
+        <div class="hdr-sub">クラウドタイムカード 全社管理画面</div>
+      </div>
+      <span class="badge-super" style="margin-left:8px">tamulab専用</span>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        <div id="hdr-clock" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)"></div>
+        <button style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 14px;font-size:12px;font-family:inherit" onclick="doLogout()">ログアウト</button>
+      </div>
+    </div>
+
+    <!-- サマリー -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">総登録会社数</div>
+        <div id="sum-total" class="summary-value">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">トライアル中</div>
+        <div id="sum-trial" class="summary-value" style="color:var(--yellow)">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">有料契約中</div>
+        <div id="sum-active" class="summary-value" style="color:var(--green)">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">停止中</div>
+        <div id="sum-suspended" class="summary-value" style="color:var(--red)">-</div>
+      </div>
+    </div>
+
+    <!-- タブ -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('companies',this)">会社一覧</button>
+      <button class="tab" onclick="switchTab('expiring',this)">期限切れ間近</button>
+    </div>
+
+    <!-- 会社一覧タブ -->
+    <div id="tab-companies">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">登録会社一覧</div>
+          <button style="background:rgba(56,139,253,.1);border:1px solid rgba(56,139,253,.25);color:var(--accent);border-radius:8px;padding:6px 14px;font-size:12px;font-family:inherit" onclick="loadData()">更新</button>
+        </div>
+        <div id="companies-table"><div class="loading">読み込み中...</div></div>
+      </div>
+    </div>
+
+    <!-- 期限切れ間近タブ -->
+    <div id="tab-expiring" style="display:none">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">トライアル期限切れ間近（7日以内）</div>
+        </div>
+        <div id="expiring-table"><div class="loading">読み込み中...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- プラン変更モーダル -->
+  <div id="modal-plan" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-title">プラン変更</div>
+      <div id="modal-company-name" style="font-size:14px;color:var(--muted);margin-bottom:16px"></div>
+      <div class="modal-label">プラン</div>
+      <select id="modal-plan-select" class="txt-input">
+        <option value="trial">trial（無料トライアル）</option>
+        <option value="active">active（有料契約中）</option>
+        <option value="suspended">suspended（停止中）</option>
+      </select>
+      <div class="modal-label" style="margin-top:12px">トライアル終了日</div>
+      <input id="modal-trial-end" class="txt-input" type="date">
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn-primary" style="background:var(--accent)" onclick="savePlan()">保存</button>
+        <button class="btn-primary" style="background:rgba(255,255,255,.07);color:var(--muted)" onclick="closeModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const https://hyvjvcdahahrznhujtaz.supabase.co = 'https://hyvjvcdahahrznhujtaz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dmp2Y2RhaGFocnpuaHVqdGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTE3MDcsImV4cCI6MjA5NTQyNzcwN30.Zdl8yaFH64xEbiEzi7v8dsd2iu3CKaH96TBNqigJZV4';
+const sb = createClient(https://hyvjvcdahahrznhujtaz.supabase.co, SUPABASE_KEY);
+
+// superadminのメールアドレス（田村さんのメール）
+const SUPERADMIN_EMAIL = 'tamulab.jp@gmail.com';
+
+let allCompanies = [];
+let editingCompanyId = null;
+
+// ── ログイン ──────────────────────────────────────────
+window.doLogin = async function(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-err');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>ログイン中...';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error || data.user?.email !== SUPERADMIN_EMAIL){
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'ログイン';
+    return;
+  }
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-dashboard').style.display = 'block';
+  await loadData();
+  setInterval(tick, 1000); tick();
+};
+
+window.doLogout = async function(){
+  await sb.auth.signOut();
+  location.reload();
+};
+
+// ── データ読み込み ────────────────────────────────────
+window.loadData = async function(){
+  const { data, error } = await sb.from('tc_companies')
+    .select('*, tc_employees(count)')
+    .order('created_at', { ascending: false });
+
+  if(error){ console.error(error); return; }
+  allCompanies = data || [];
+
+  // サマリー集計
+  document.getElementById('sum-total').textContent     = allCompanies.length;
+  document.getElementById('sum-trial').textContent     = allCompanies.filter(c=>c.plan==='trial').length;
+  document.getElementById('sum-active').textContent    = allCompanies.filter(c=>c.plan==='active').length;
+  document.getElementById('sum-suspended').textContent = allCompanies.filter(c=>c.plan==='suspended').length;
+
+  renderCompanies();
+  renderExpiring();
+};
+
+// ── 会社一覧レンダリング ──────────────────────────────
+function renderCompanies(){
+  const wrap = document.getElementById('companies-table');
+  if(!allCompanies.length){
+    wrap.innerHTML = '<div class="loading">登録されている会社はありません</div>';
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>会社名</th>
+          <th>会社コード</th>
+          <th>管理者</th>
+          <th>社員数</th>
+          <th>プラン</th>
+          <th>トライアル終了</th>
+          <th>登録日</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allCompanies.map(c => {
+          const empCount = c.tc_employees?.[0]?.count || 0;
+          const planClass = c.plan==='active'?'plan-active':c.plan==='suspended'?'plan-suspended':'plan-trial';
+          const planLabel = c.plan==='active'?'有料':c.plan==='suspended'?'停止':'トライアル';
+          const trialEnd  = c.trial_ends_at ? new Date(c.trial_ends_at) : null;
+          const now       = new Date();
+          const daysLeft  = trialEnd ? Math.ceil((trialEnd-now)/(1000*60*60*24)) : null;
+          let trialStr = '-';
+          let trialClass = '';
+          if(trialEnd){
+            trialStr = trialEnd.toLocaleDateString('ja-JP');
+            if(daysLeft !== null && daysLeft <= 0) trialClass = 'warn';
+            else if(daysLeft !== null && daysLeft <= 7) trialClass = 'soon';
+          }
+          return `<tr>
+            <td style="font-weight:600">${c.name}</td>
+            <td><span style="font-family:'DM Mono',monospace;color:var(--accent)">${c.company_code}</span></td>
+            <td>
+              <div style="font-size:13px">${c.admin_name||'-'}</div>
+              <div style="font-size:11px;color:var(--muted)">${c.admin_email||''}</div>
+            </td>
+            <td style="text-align:center">${empCount}名</td>
+            <td><span class="plan-badge ${planClass}">${planLabel}</span></td>
+            <td class="${trialClass}">${trialStr}${daysLeft!==null&&daysLeft>0?`<br><span style="font-size:10px">残${daysLeft}日</span>`:''}</td>
+            <td style="font-size:12px;color:var(--muted)">${new Date(c.created_at).toLocaleDateString('ja-JP')}</td>
+            <td>
+              <button class="btn-action" onclick="openPlanModal('${c.id}')">プラン変更</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── 期限切れ間近レンダリング ──────────────────────────
+function renderExpiring(){
+  const now = new Date();
+  const soon = allCompanies.filter(c => {
+    if(c.plan !== 'trial' || !c.trial_ends_at) return false;
+    const end = new Date(c.trial_ends_at);
+    const days = Math.ceil((end-now)/(1000*60*60*24));
+    return days <= 7;
+  });
+
+  const wrap = document.getElementById('expiring-table');
+  if(!soon.length){
+    wrap.innerHTML = '<div class="loading">期限切れ間近の会社はありません</div>';
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>会社名</th><th>管理者メール</th><th>会社コード</th><th>トライアル終了</th><th>残日数</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        ${soon.map(c => {
+          const end   = new Date(c.trial_ends_at);
+          const days  = Math.ceil((end-now)/(1000*60*60*24));
+          const cls   = days <= 0 ? 'warn' : 'soon';
+          return `<tr>
+            <td style="font-weight:600">${c.name}</td>
+            <td style="font-size:12px;color:var(--muted)">${c.admin_email||'-'}</td>
+            <td><span style="font-family:'DM Mono',monospace;color:var(--accent)">${c.company_code}</span></td>
+            <td class="${cls}">${end.toLocaleDateString('ja-JP')}</td>
+            <td class="${cls}" style="font-weight:600">${days<=0?'期限切れ':days+'日'}</td>
+            <td><button class="btn-action" onclick="openPlanModal('${c.id}')">プラン変更</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── タブ切り替え ──────────────────────────────────────
+window.switchTab = function(tab, btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-companies').style.display = tab==='companies' ? 'block' : 'none';
+  document.getElementById('tab-expiring').style.display  = tab==='expiring'  ? 'block' : 'none';
+};
+
+// ── プラン変更モーダル ────────────────────────────────
+window.openPlanModal = function(id){
+  const company = allCompanies.find(c=>c.id===id);
+  if(!company) return;
+  editingCompanyId = id;
+  document.getElementById('modal-company-name').textContent = company.name;
+  document.getElementById('modal-plan-select').value = company.plan || 'trial';
+  const trialEnd = company.trial_ends_at ? company.trial_ends_at.slice(0,10) : '';
+  document.getElementById('modal-trial-end').value = trialEnd;
+  document.getElementById('modal-plan').classList.add('open');
+};
+
+window.closeModal = function(){
+  document.getElementById('modal-plan').classList.remove('open');
+  editingCompanyId = null;
+};
+
+window.savePlan = async function(){
+  if(!editingCompanyId) return;
+  const plan     = document.getElementById('modal-plan-select').value;
+  const trialEnd = document.getElementById('modal-trial-end').value;
+  const { error } = await sb.from('tc_companies').update({
+    plan,
+    trial_ends_at: trialEnd ? new Date(trialEnd).toISOString() : null
+  }).eq('id', editingCompanyId);
+  if(error){ alert('保存エラー: '+error.message); return; }
+  closeModal();
+  await loadData();
+};
+
+// ── 時計 ─────────────────────────────────────────────
+function tick(){
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const t = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const el = document.getElementById('hdr-clock');
+  if(el) el.textContent = t;
+}
+
+// ── 初期チェック（既にログイン済みか）───────────────
+(async()=>{
+  const { data: { session } } = await sb.auth.getSession();
+  if(session?.user?.email === SUPERADMIN_EMAIL){
+    document.getElementById('screen-login').style.display = 'none';
+    document.getElementById('screen-dashboard').style.display = 'block';
+    await loadData();
+    setInterval(tick, 1000); tick();
+  }
+})();
+</script>
+</body>
+</html>

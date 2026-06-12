@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="icons/icon-192.png">
+<title>新規登録 | TIMECARD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e14; --surface: #111720; --border: #1e2d3d;
+    --text: #cdd9e5; --muted: #768390; --subtle: #22303e;
+    --green: #3fb950; --blue: #79c0ff; --yellow: #e3b341; --red: #ff7b72;
+    --accent: #388bfd;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px 48px; }
+  #app { width: 100%; max-width: 480px; }
+  button { font-family: inherit; cursor: pointer; border: none; outline: none; transition: all .14s; }
+  button:active { transform: scale(.97); }
+  input { font-family: inherit; }
+  input::placeholder { color: var(--muted); }
+
+  /* ヘッダー */
+  .page-header { text-align: center; padding: 32px 0 28px; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -.5px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  /* カード */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+
+  /* フォーム */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .required { font-size: 10px; color: var(--red); background: rgba(255,123,114,.1); border: 1px solid rgba(255,123,114,.3); border-radius: 4px; padding: 1px 6px; }
+  .txt-input { width: 100%; padding: 13px 16px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 15px; font-family: inherit; outline: none; transition: border .15s; }
+  .txt-input:focus { border-color: var(--accent); }
+  .txt-input.error { border-color: var(--red); }
+  .err-msg { font-size: 12px; color: var(--red); margin-top: 6px; display: none; }
+
+  /* セクションラベル */
+  .section-label { font-size: 11px; color: var(--muted); letter-spacing: .1em; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+  /* ボタン */
+  .btn-primary { width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 600; font-family: inherit; background: var(--accent); color: #fff; cursor: pointer; border: none; transition: all .15s; margin-top: 8px; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn-link { background: none; border: none; color: var(--muted); font-size: 13px; font-family: inherit; cursor: pointer; padding: 4px 0; text-decoration: underline; }
+  .btn-link:hover { color: var(--text); }
+
+  /* 完了画面 */
+  .complete-icon { width: 72px; height: 72px; border-radius: 50%; background: rgba(63,185,80,.12); border: 2px solid rgba(63,185,80,.4); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
+  .code-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  .code-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .08em; }
+  .code-value { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--text); letter-spacing: .1em; }
+  .code-copy { display: flex; align-items: center; justify-content: space-between; }
+  .btn-copy { background: rgba(56,139,253,.12); border: 1px solid rgba(56,139,253,.3); color: var(--accent); border-radius: 8px; padding: 6px 14px; font-size: 12px; font-family: inherit; cursor: pointer; }
+  .btn-copy:active { transform: scale(.95); }
+
+  /* ローディング */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+
+  /* 注意書き */
+  .notice { background: rgba(227,179,65,.07); border: 1px solid rgba(227,179,65,.25); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 14px; }
+  .notice strong { color: var(--yellow); }
+
+  /* トライアル帯 */
+  .trial-banner { background: rgba(63,185,80,.08); border: 1px solid rgba(63,185,80,.25); border-radius: 10px; padding: 12px 16px; text-align: center; font-size: 13px; color: var(--green); margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── 登録フォーム画面 ── -->
+  <div id="screen-form">
+    <div class="page-header">
+      <div class="page-title">TIMECARD</div>
+      <div class="page-sub">新規会社登録</div>
+    </div>
+
+    <div class="trial-banner">
+      ✓ 最初の1ヶ月間は無料でご利用いただけます
+    </div>
+
+    <div class="card">
+      <div class="section-label">会社情報</div>
+
+      <div class="field">
+        <div class="field-label">会社名 <span class="required">必須</span></div>
+        <input id="inp-company" class="txt-input" type="text" placeholder="例：株式会社〇〇" maxlength="100" autocomplete="organization">
+        <div id="err-company" class="err-msg">会社名を入力してください</div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+      <div class="section-label">管理者情報</div>
+
+      <div class="field">
+        <div class="field-label">管理者氏名 <span class="required">必須</span></div>
+        <input id="inp-name" class="txt-input" type="text" placeholder="例：山田 太郎" maxlength="50" autocomplete="name">
+        <div id="err-name" class="err-msg">氏名を入力してください</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">メールアドレス <span class="required">必須</span></div>
+        <input id="inp-email" class="txt-input" type="email" placeholder="例：yamada@example.com" maxlength="200" autocomplete="email">
+        <div id="err-email" class="err-msg">正しいメールアドレスを入力してください</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">パスワード <span class="required">必須</span></div>
+        <input id="inp-pass" class="txt-input" type="password" placeholder="8文字以上" maxlength="100" autocomplete="new-password">
+        <div id="err-pass" class="err-msg">パスワードは8文字以上で入力してください</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">パスワード（確認）<span class="required">必須</span></div>
+        <input id="inp-pass2" class="txt-input" type="password" placeholder="もう一度入力してください" maxlength="100" autocomplete="new-password">
+        <div id="err-pass2" class="err-msg">パスワードが一致しません</div>
+      </div>
+
+      <div id="err-global" class="err-msg" style="font-size:13px;margin-top:4px"></div>
+
+      <button id="btn-register" class="btn-primary" onclick="doRegister()">
+        無料で始める
+      </button>
+
+      <div class="notice">
+        <strong>トライアルについて</strong><br>
+        登録後30日間は全機能が無料でご利用いただけます。<br>
+        トライアル終了後は社員数に応じた月額プランへ移行します。
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px">
+      <button class="btn-link" onclick="location.href='index.html'">← 打刻画面に戻る</button>
+    </div>
+  </div>
+
+  <!-- ── 登録完了画面 ── -->
+  <div id="screen-complete" style="display:none">
+    <div class="page-header">
+      <div class="page-title">TIMECARD</div>
+      <div class="page-sub">登録完了</div>
+    </div>
+
+    <div class="card">
+      <div class="complete-icon">✓</div>
+
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px">登録が完了しました</div>
+        <div id="complete-company" style="font-size:14px;color:var(--muted)"></div>
+      </div>
+
+      <div class="code-box">
+        <div class="code-label">会社コード</div>
+        <div class="code-copy">
+          <div id="company-code" class="code-value"></div>
+          <button class="btn-copy" onclick="copyCode()">コピー</button>
+        </div>
+      </div>
+
+      <div class="notice" style="margin-top:0;margin-bottom:16px">
+        <strong>この会社コードを社員に伝えてください</strong><br>
+        社員はこのコードを入力してアプリを使い始めます。<br>
+        コードはいつでも管理者ダッシュボードで確認できます。
+      </div>
+
+      <button class="btn-primary" onclick="goToDashboard()" style="margin-top:0">
+        管理者ダッシュボードへ →
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted)">
+      トライアル期間：登録から30日間
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const https://hyvjvcdahahrznhujtaz.supabase.co = 'https://hyvjvcdahahrznhujtaz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dmp2Y2RhaGFocnpuaHVqdGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTE3MDcsImV4cCI6MjA5NTQyNzcwN30.Zdl8yaFH64xEbiEzi7v8dsd2iu3CKaH96TBNqigJZV4';
+const sb = createClient(https://hyvjvcdahahrznhujtaz.supabase.co, SUPABASE_KEY);
+
+// ── 会社コード生成（ランダム英数字6文字）──────────────
+function generateCompanyCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字を除外
+  let code = '';
+  for(let i=0; i<6; i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+// 会社コードの重複チェック付き生成
+async function generateUniqueCode(){
+  for(let i=0; i<10; i++){
+    const code = generateCompanyCode();
+    const { data } = await sb.from('tc_companies').select('id').eq('company_code', code).maybeSingle();
+    if(!data) return code; // 重複なし
+  }
+  throw new Error('会社コードの生成に失敗しました');
+}
+
+// ── バリデーション ────────────────────────────────────
+function validate(){
+  let ok = true;
+  const hide = id => { document.getElementById(id).style.display='none'; };
+  const show = id => { document.getElementById(id).style.display='block'; ok=false; };
+  const val  = id => document.getElementById(id).value.trim();
+
+  hide('err-company'); hide('err-name'); hide('err-email'); hide('err-pass'); hide('err-pass2'); hide('err-global');
+  document.querySelectorAll('.txt-input').forEach(el => el.classList.remove('error'));
+
+  if(!val('inp-company')){ show('err-company'); document.getElementById('inp-company').classList.add('error'); }
+  if(!val('inp-name'))   { show('err-name');    document.getElementById('inp-name').classList.add('error'); }
+
+  const email = val('inp-email');
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    show('err-email'); document.getElementById('inp-email').classList.add('error');
+  }
+
+  const pass = document.getElementById('inp-pass').value;
+  if(pass.length < 8){ show('err-pass'); document.getElementById('inp-pass').classList.add('error'); }
+
+  const pass2 = document.getElementById('inp-pass2').value;
+  if(pass !== pass2){ show('err-pass2'); document.getElementById('inp-pass2').classList.add('error'); }
+
+  return ok;
+}
+
+// ── 登録処理 ─────────────────────────────────────────
+window.doRegister = async function(){
+  if(!validate()) return;
+
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>登録中...';
+
+  const errGlobal = document.getElementById('err-global');
+
+  try{
+    const companyName = document.getElementById('inp-company').value.trim();
+    const adminName   = document.getElementById('inp-name').value.trim();
+    const email       = document.getElementById('inp-email').value.trim();
+    const password    = document.getElementById('inp-pass').value;
+
+    // 1. Supabase Authでアカウント作成
+    const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
+    if(authError) throw new Error(authError.message);
+
+    const userId = authData.user?.id;
+    if(!userId) throw new Error('アカウントの作成に失敗しました');
+
+    // 2. 会社コードを生成（重複チェック付き）
+    const companyCode = await generateUniqueCode();
+
+    // 3. tc_companiesに会社を登録
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+    const { data: company, error: companyError } = await sb.from('tc_companies').insert({
+      name:           companyName,
+      company_code:   companyCode,
+      admin_name:     adminName,
+      admin_email:    email,
+      auth_user_id:   userId,
+      round_unit:     1,
+      round_type:     'none',
+      break_mode:     'auto',
+      break_fixed_min:0,
+      gps_mode:       'record',
+      plan:           'trial',
+      trial_ends_at:  trialEndsAt.toISOString(),
+    }).select().single();
+
+    if(companyError) throw new Error(companyError.message);
+
+    // 4. 完了画面に表示
+    document.getElementById('complete-company').textContent = companyName;
+    document.getElementById('company-code').textContent = companyCode;
+
+    // sessionStorageに保存（管理者ダッシュボードで使用）
+    sessionStorage.setItem('tc_admin_company', JSON.stringify(company));
+
+    document.getElementById('screen-form').style.display = 'none';
+    document.getElementById('screen-complete').style.display = 'block';
+    window.scrollTo(0, 0);
+
+  }catch(e){
+    errGlobal.textContent = e.message || '登録に失敗しました。もう一度お試しください。';
+    errGlobal.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '無料で始める';
+  }
+};
+
+// ── 会社コードをコピー ────────────────────────────────
+window.copyCode = function(){
+  const code = document.getElementById('company-code').textContent;
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = 'コピー済み';
+    setTimeout(()=>btn.textContent='コピー', 2000);
+  });
+};
+
+// ── 管理者ダッシュボードへ ────────────────────────────
+window.goToDashboard = function(){
+  location.href = 'index.html';
+};
+</script>
+</body>
+</html>
