@@ -146,12 +146,17 @@
         <button class="pill" onclick="showAdminLogin()" style="font-size:13px">管理者ログイン</button>
       </div>
       <div id="admin-login-form" style="display:none">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">管理者の社員番号</div>
-        <input id="admin-empno-input" class="txt-input" type="text" placeholder="社員番号を入力" style="font-size:15px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">メールアドレス</div>
+        <input id="admin-email-input" class="txt-input" type="email" placeholder="登録したメールアドレス" style="font-size:15px;margin-bottom:10px" autocomplete="email">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">パスワード</div>
+        <input id="admin-pass-input" class="txt-input" type="password" placeholder="パスワード" style="font-size:15px;margin-bottom:8px" autocomplete="current-password">
         <div id="admin-error" class="err-msg" style="display:none;font-size:13px"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="pbtn blue"  style="padding:10px 22px;font-size:14px" onclick="doAdminLogin()">ログイン</button>
           <button class="pbtn muted" style="padding:10px 18px;font-size:14px" onclick="hideAdminLogin()">キャンセル</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+          まだ登録していない方は <a href="register.html" style="color:var(--accent);text-decoration:none">新規会社登録</a>
         </div>
       </div>
     </div>
@@ -637,36 +642,80 @@ async function loadPersonalHistory(){
 // ══════════════════════════════════════════════
 // 管理者ログイン
 // ══════════════════════════════════════════════
-window.showAdminLogin = function(){ document.getElementById('admin-login-toggle').style.display='none'; document.getElementById('admin-login-form').style.display='block'; document.getElementById('admin-empno-input').focus(); };
-window.hideAdminLogin = function(){ document.getElementById('admin-login-toggle').style.display='block'; document.getElementById('admin-login-form').style.display='none'; document.getElementById('admin-empno-input').value=''; document.getElementById('admin-error').style.display='none'; };
+window.showAdminLogin = function(){
+  document.getElementById('admin-login-toggle').style.display='none';
+  document.getElementById('admin-login-form').style.display='block';
+  document.getElementById('admin-email-input').focus();
+};
+window.hideAdminLogin = function(){
+  document.getElementById('admin-login-toggle').style.display='block';
+  document.getElementById('admin-login-form').style.display='none';
+  document.getElementById('admin-email-input').value='';
+  document.getElementById('admin-pass-input').value='';
+  document.getElementById('admin-error').style.display='none';
+};
 
 window.doAdminLogin = async function(){
-  const no = document.getElementById('admin-empno-input').value.trim();
-  const errEl = document.getElementById('admin-error');
-  if(!currentCompany){ errEl.textContent='先に会社コードを入力してください'; errEl.style.display='block'; return; }
-  if(!no){ errEl.textContent='社員番号を入力してください'; errEl.style.display='block'; return; }
-  const { data } = await sb.from('tc_employees')
-    .select('*')
-    .eq('company_id', currentCompany.id)
-    .eq('employee_no', no)
-    .eq('role', 'admin')
-    .eq('is_active', true)
-    .maybeSingle();
-  if(!data){ errEl.textContent='管理者として登録されていません'; errEl.style.display='block'; return; }
+  const email  = document.getElementById('admin-email-input').value.trim();
+  const pass   = document.getElementById('admin-pass-input').value;
+  const errEl  = document.getElementById('admin-error');
   errEl.style.display='none';
-  sessionStorage.setItem('tc_admin_company', JSON.stringify(currentCompany));
-  sessionStorage.setItem('tc_admin_employee', JSON.stringify(data));
+
+  if(!email){ errEl.textContent='メールアドレスを入力してください'; errEl.style.display='block'; return; }
+  if(!pass) { errEl.textContent='パスワードを入力してください';     errEl.style.display='block'; return; }
+
+  // Supabase Authでログイン
+  const { data: authData, error: authError } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(authError){ errEl.textContent='メールアドレスまたはパスワードが違います'; errEl.style.display='block'; return; }
+
+  // auth_user_idでtc_companiesを検索
+  const { data: company, error: companyError } = await sb.from('tc_companies')
+    .select('*')
+    .eq('auth_user_id', authData.user.id)
+    .maybeSingle();
+
+  if(companyError||!company){
+    errEl.textContent='この管理者アカウントに紐づく会社が見つかりません';
+    errEl.style.display='block';
+    await sb.auth.signOut();
+    return;
+  }
+
+  // トライアル期限チェック
+  if(company.plan==='trial' && company.trial_ends_at){
+    const expired = new Date(company.trial_ends_at) < new Date();
+    if(expired){
+      errEl.textContent='トライアル期間が終了しています。tamulab（tamulab.jp@gmail.com）にお問い合わせください';
+      errEl.style.display='block';
+      await sb.auth.signOut();
+      return;
+    }
+  }
+  if(company.plan==='suspended'){
+    errEl.textContent='このアカウントは停止中です。tamulab（tamulab.jp@gmail.com）にお問い合わせください';
+    errEl.style.display='block';
+    await sb.auth.signOut();
+    return;
+  }
+
+  // ログイン成功
+  currentCompany = company;
+  sessionStorage.setItem('tc_admin_company', JSON.stringify(company));
   hideAdminLogin();
-  document.getElementById('admin-company-name').textContent = currentCompany.name;
+  document.getElementById('admin-company-name').textContent = company.name;
   await loadAdminData();
   go('admin');
 };
 
-window.doLogout = function(){ currentEmployee=null; todayRec=null; gpsCoords=null; go('login'); };
-
 // ══════════════════════════════════════════════
 // 管理者データ読み込み
 // ══════════════════════════════════════════════
+window.doLogout = async function(){
+  await sb.auth.signOut();
+  currentCompany=null; currentEmployee=null; todayRec=null; gpsCoords=null;
+  go('login');
+};
+
 async function loadAdminData(){
   const company = currentCompany || JSON.parse(sessionStorage.getItem('tc_admin_company')||'null');
   if(!company) return;
