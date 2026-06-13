@@ -186,9 +186,9 @@
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const https://hyvjvcdahahrznhujtaz.supabase.co = 'https://hyvjvcdahahrznhujtaz.supabase.co';
+const SUPABASE_URL = 'https://hyvjvcdahahrznhujtaz.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dmp2Y2RhaGFocnpuaHVqdGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTE3MDcsImV4cCI6MjA5NTQyNzcwN30.Zdl8yaFH64xEbiEzi7v8dsd2iu3CKaH96TBNqigJZV4';
-const sb = createClient(https://hyvjvcdahahrznhujtaz.supabase.co, SUPABASE_KEY);
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── 会社コード生成（ランダム英数字6文字）──────────────
 function generateCompanyCode(){
