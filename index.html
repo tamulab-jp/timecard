@@ -500,15 +500,24 @@ async function loadEmployee(no){
     .eq('company_id', currentCompany.id)
     .eq('employee_no', no)
     .eq('is_active', true)
-    .single();
-  if(error||!data){
-    display.innerHTML = '<span style="font-size:13px;color:var(--red)">社員番号が見つかりません</span>';
+    .maybeSingle();
+  if(!data){
+    // 見つからない場合はlocalStorageをクリアして新規登録を促す
+    localStorage.removeItem('tc_emp_no_'+currentCompany.company_code);
+    document.getElementById('employee-no-input').value='';
+    display.innerHTML='';
+    document.getElementById('quick-punch').style.display='none';
+    // 自動的に新規登録フォームを表示
+    showNewEmployeeForm();
     return;
   }
   currentEmployee = data;
   display.innerHTML = `<span class="noto" style="font-size:16px;color:var(--text);font-weight:600">${data.name}</span><span style="font-size:12px;color:var(--muted);margin-left:8px">さん</span>`;
   localStorage.setItem('tc_emp_no_'+currentCompany.company_code, no);
   localStorage.setItem('tc_last_company_code', currentCompany.company_code);
+  // 新規登録フォームが開いていたら閉じる
+  document.getElementById('new-employee-form').style.display='none';
+  document.getElementById('new-employee-toggle').style.display='block';
   document.getElementById('quick-punch').style.display='block';
   await loadTodayRecord();
 }
