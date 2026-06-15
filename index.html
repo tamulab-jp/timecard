@@ -105,6 +105,31 @@
              maxlength="20" oninput="onEmployeeNoInput()"
              style="font-size:18px;padding:15px 16px">
       <div id="employee-name-display" style="margin-top:10px;min-height:28px"></div>
+
+      <!-- はじめて使う方 -->
+      <div id="new-employee-toggle" style="margin-top:12px">
+        <button onclick="showNewEmployeeForm()" style="background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;padding:4px 0;text-decoration:underline">
+          はじめて使う方はこちら
+        </button>
+      </div>
+
+      <!-- 新規社員登録フォーム -->
+      <div id="new-employee-form" style="display:none;margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">新規登録</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">氏名</div>
+        <input id="new-emp-name" class="txt-input" type="text" placeholder="例：田村 守" maxlength="50"
+               style="font-size:15px;margin-bottom:10px" autocomplete="name">
+        <div id="new-emp-error" style="font-size:12px;color:var(--red);display:none;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px">
+          <button onclick="doRegisterEmployee()" style="
+            flex:1;padding:11px 0;border-radius:10px;border:none;cursor:pointer;
+            font-family:inherit;font-size:14px;font-weight:600;
+            background:var(--accent);color:#fff;transition:all .14s">登録する</button>
+          <button onclick="hideNewEmployeeForm()" style="
+            padding:11px 16px;border-radius:10px;border:1px solid var(--border);cursor:pointer;
+            font-family:inherit;font-size:14px;background:none;color:var(--muted);transition:all .14s">キャンセル</button>
+        </div>
+      </div>
     </div>
 
     <!-- 打刻ボタン（社員番号確認後に表示） -->
@@ -463,6 +488,69 @@ async function loadEmployee(no){
   document.getElementById('quick-punch').style.display='block';
   await loadTodayRecord();
 }
+
+// ══════════════════════════════════════════════
+// 社員セルフ登録
+// ══════════════════════════════════════════════
+window.showNewEmployeeForm = function(){
+  document.getElementById('new-employee-toggle').style.display='none';
+  document.getElementById('new-employee-form').style.display='block';
+  document.getElementById('new-emp-name').focus();
+};
+
+window.hideNewEmployeeForm = function(){
+  document.getElementById('new-employee-toggle').style.display='block';
+  document.getElementById('new-employee-form').style.display='none';
+  document.getElementById('new-emp-name').value='';
+  document.getElementById('new-emp-error').style.display='none';
+};
+
+window.doRegisterEmployee = async function(){
+  const name = document.getElementById('new-emp-name').value.trim();
+  const errEl = document.getElementById('new-emp-error');
+  errEl.style.display='none';
+
+  if(!name){ errEl.textContent='氏名を入力してください'; errEl.style.display='block'; return; }
+  if(!currentCompany){ errEl.textContent='先に会社コードを入力してください'; errEl.style.display='block'; return; }
+
+  const btn = document.querySelector('#new-employee-form button');
+  btn.textContent='登録中...'; btn.disabled=true;
+
+  try{
+    // 現在の最大社員番号を取得して採番（トリガーで自動採番されるのでemployee_noは空でOK）
+    const { data: newEmp, error } = await sb.from('tc_employees').insert({
+      company_id: currentCompany.id,
+      name:       name,
+      role:       'employee',
+      is_active:  true,
+    }).select().single();
+
+    if(error) throw new Error(error.message);
+
+    // 登録した社員番号を自動入力
+    currentEmployee = newEmp;
+    document.getElementById('employee-no-input').value = newEmp.employee_no;
+    document.getElementById('employee-name-display').innerHTML =
+      `<span class="noto" style="font-size:16px;color:var(--text);font-weight:600">${newEmp.name}</span><span style="font-size:12px;color:var(--muted);margin-left:8px">さん</span>`;
+    localStorage.setItem('tc_emp_no_'+currentCompany.company_code, newEmp.employee_no);
+    localStorage.setItem('tc_last_company_code', currentCompany.company_code);
+
+    hideNewEmployeeForm();
+    document.getElementById('quick-punch').style.display='block';
+    await loadTodayRecord();
+
+    // 登録完了トースト
+    const toast = document.getElementById('punch-toast');
+    toast.textContent = `登録完了！社員番号：${newEmp.employee_no}`;
+    toast.style.cssText='display:block;margin:12px 24px 0;padding:12px 16px;border-radius:10px;font-size:13px;text-align:center;background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.4);color:var(--text)';
+    setTimeout(()=>toast.style.display='none', 5000);
+
+  }catch(e){
+    errEl.textContent = e.message || '登録に失敗しました';
+    errEl.style.display='block';
+    btn.textContent='登録する'; btn.disabled=false;
+  }
+};
 
 async function loadTodayRecord(){
   const { data } = await sb.from('tc_timecard_records')
