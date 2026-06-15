@@ -980,13 +980,53 @@ window.renderAdminSummary = renderAdminSummary;
 window.exportCSV = function(){
   const selMonth=document.getElementById('summary-month-sel')?.value||monthStr();
   const company=currentCompany||JSON.parse(sessionStorage.getItem('tc_admin_company')||'{}');
-  const rows=[['社員番号','氏名','日付','出勤','退勤','実働時間（分）']];
+
+  // Googleマップリンク生成
+  const mapLink = (lat, lng) => {
+    if(!lat||!lng) return '';
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  };
+
+  // 休憩時間計算（分）
+  const calcBreakMin = (r) => {
+    const mode = company.break_mode || 'auto';
+    if(mode==='stamp'){
+      // 実打刻：breaksの合計
+      const ms = (r.breaks||[]).reduce((a,b)=>{
+        if(b.start&&b.end) return a+(new Date(b.end)-new Date(b.start));
+        return a;
+      },0);
+      return Math.floor(ms/60000);
+    }
+    if(mode==='fixed'){
+      return company.break_fixed_min||0;
+    }
+    // auto：労基法自動控除
+    if(!r.clock_in||!r.clock_out) return 0;
+    const workMs = new Date(r.clock_out)-new Date(r.clock_in);
+    if(workMs > 8*3600*1000) return 60;
+    if(workMs > 6*3600*1000) return 45;
+    return 0;
+  };
+
+  const rows=[['社員番号','氏名','日付','出勤','退勤','休憩時間（分）','実働時間（分）','出勤場所（地図）','退勤場所（地図）']];
   allEmployees.forEach(emp=>{
     allRecords.filter(r=>r.employee_id===emp.id&&r.work_date.startsWith(selMonth))
       .sort((a,b)=>a.work_date.localeCompare(b.work_date))
       .forEach(r=>{
         const w=calcWork(r);
-        rows.push([emp.employee_no,emp.name,r.work_date,fmtTime(r.clock_in),fmtTime(r.clock_out),w!=null?Math.floor(w/60000):'']);
+        const breakMin = r.clock_in&&r.clock_out ? calcBreakMin(r) : '';
+        rows.push([
+          emp.employee_no,
+          emp.name,
+          r.work_date,
+          fmtTime(r.clock_in),
+          fmtTime(r.clock_out),
+          breakMin,
+          w!=null?Math.floor(w/60000):'',
+          mapLink(r.clock_in_lat, r.clock_in_lng),
+          mapLink(r.clock_out_lat, r.clock_out_lng),
+        ]);
       });
   });
   const bom='\uFEFF';
