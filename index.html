@@ -120,7 +120,27 @@
         <input id="new-emp-name" class="txt-input" type="text" placeholder="例：田村 守" maxlength="50"
                style="font-size:15px;margin-bottom:10px" autocomplete="name">
         <div id="new-emp-error" style="font-size:12px;color:var(--red);display:none;margin-bottom:8px"></div>
-        <div style="display:flex;gap:8px">
+
+        <!-- 同名確認エリア -->
+        <div id="duplicate-check" style="display:none;margin-bottom:12px;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:10px;padding:14px">
+          <div style="font-size:13px;color:var(--yellow);font-weight:600;margin-bottom:8px">⚠ 同じ名前が登録されています</div>
+          <div id="duplicate-list" style="margin-bottom:12px"></div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">同一人物ですか？それとも別の方ですか？</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="btn-use-existing" onclick="useExistingEmployee()" style="
+              flex:1;padding:9px 0;border-radius:8px;border:none;cursor:pointer;
+              font-family:inherit;font-size:13px;font-weight:600;
+              background:rgba(56,139,253,.15);box-shadow:inset 0 0 0 1px rgba(56,139,253,.4);
+              color:var(--blue)">この番号でログイン</button>
+            <button onclick="forceRegisterEmployee()" style="
+              flex:1;padding:9px 0;border-radius:8px;border:none;cursor:pointer;
+              font-family:inherit;font-size:13px;font-weight:600;
+              background:rgba(63,185,80,.12);box-shadow:inset 0 0 0 1px rgba(63,185,80,.35);
+              color:var(--green)">別人として新規登録</button>
+          </div>
+        </div>
+
+        <div id="register-btn-area" style="display:flex;gap:8px">
           <button onclick="doRegisterEmployee()" style="
             flex:1;padding:11px 0;border-radius:10px;border:none;cursor:pointer;
             font-family:inherit;font-size:14px;font-weight:600;
@@ -185,7 +205,7 @@
         </div>
       </div>
     </div>
-    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.0 · 2026-06-11</div>
+    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.2 · 2026-06-16</div>
   </div>
 
   <!-- 打刻詳細画面 -->
@@ -499,6 +519,8 @@ async function loadEmployee(no){
 window.showNewEmployeeForm = function(){
   document.getElementById('new-employee-toggle').style.display='none';
   document.getElementById('new-employee-form').style.display='block';
+  document.getElementById('duplicate-check').style.display='none';
+  document.getElementById('register-btn-area').style.display='flex';
   document.getElementById('new-emp-name').focus();
 };
 
@@ -507,21 +529,82 @@ window.hideNewEmployeeForm = function(){
   document.getElementById('new-employee-form').style.display='none';
   document.getElementById('new-emp-name').value='';
   document.getElementById('new-emp-error').style.display='none';
+  document.getElementById('duplicate-check').style.display='none';
+  document.getElementById('register-btn-area').style.display='flex';
+};
+
+// 同名社員を選んでログイン
+let _duplicateEmployees = [];
+window.useExistingEmployee = function(){
+  // 同名が1人の場合はそのままログイン
+  // 複数いる場合は最初の1人（ボタンは社員ごとに生成）
+  const emp = _duplicateEmployees[0];
+  if(!emp) return;
+  loginAsEmployee(emp);
+};
+
+window.loginAsEmployee = function(emp){
+  currentEmployee = emp;
+  document.getElementById('employee-no-input').value = emp.employee_no;
+  document.getElementById('employee-name-display').innerHTML =
+    `<span class="noto" style="font-size:16px;color:var(--text);font-weight:600">${emp.name}</span><span style="font-size:12px;color:var(--muted);margin-left:8px">さん</span>`;
+  localStorage.setItem('tc_emp_no_'+currentCompany.company_code, emp.employee_no);
+  localStorage.setItem('tc_last_company_code', currentCompany.company_code);
+  hideNewEmployeeForm();
+  document.getElementById('quick-punch').style.display='block';
+  loadTodayRecord();
 };
 
 window.doRegisterEmployee = async function(){
   const name = document.getElementById('new-emp-name').value.trim();
   const errEl = document.getElementById('new-emp-error');
   errEl.style.display='none';
+  document.getElementById('duplicate-check').style.display='none';
 
   if(!name){ errEl.textContent='氏名を入力してください'; errEl.style.display='block'; return; }
   if(!currentCompany){ errEl.textContent='先に会社コードを入力してください'; errEl.style.display='block'; return; }
 
-  const btn = document.querySelector('#new-employee-form button');
-  btn.textContent='登録中...'; btn.disabled=true;
+  // 同名チェック
+  const { data: dupes } = await sb.from('tc_employees')
+    .select('*')
+    .eq('company_id', currentCompany.id)
+    .eq('name', name)
+    .eq('is_active', true);
+
+  if(dupes && dupes.length > 0){
+    _duplicateEmployees = dupes;
+    // 確認エリアを表示
+    document.getElementById('duplicate-list').innerHTML = dupes.map(emp =>
+      `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div class="avatar" style="${avStyle(emp.name,30)}">${avText(emp.name)}</div>
+        <div>
+          <div style="font-size:13px;color:var(--text)">${emp.name}</div>
+          <div style="font-size:11px;color:var(--muted)">社員番号：${emp.employee_no}</div>
+        </div>
+        ${dupes.length>1?`<button onclick="loginAsEmployee(${JSON.stringify(emp).replace(/"/g,'&quot;')})" style="margin-left:auto;background:rgba(56,139,253,.15);box-shadow:inset 0 0 0 1px rgba(56,139,253,.4);color:var(--blue);border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">ログイン</button>`:''}
+      </div>`
+    ).join('');
+    document.getElementById('duplicate-check').style.display='block';
+    document.getElementById('register-btn-area').style.display='none';
+    return;
+  }
+
+  // 同名なし → そのまま登録
+  await _execRegister(name);
+};
+
+// 別人として強制登録
+window.forceRegisterEmployee = async function(){
+  const name = document.getElementById('new-emp-name').value.trim();
+  await _execRegister(name);
+};
+
+async function _execRegister(name){
+  const errEl = document.getElementById('new-emp-error');
+  const btn = document.querySelector('#register-btn-area button');
+  if(btn){ btn.textContent='登録中...'; btn.disabled=true; }
 
   try{
-    // 現在の最大社員番号を取得して採番（トリガーで自動採番されるのでemployee_noは空でOK）
     const { data: newEmp, error } = await sb.from('tc_employees').insert({
       company_id: currentCompany.id,
       name:       name,
@@ -531,7 +614,6 @@ window.doRegisterEmployee = async function(){
 
     if(error) throw new Error(error.message);
 
-    // 登録した社員番号を自動入力
     currentEmployee = newEmp;
     document.getElementById('employee-no-input').value = newEmp.employee_no;
     document.getElementById('employee-name-display').innerHTML =
@@ -543,7 +625,6 @@ window.doRegisterEmployee = async function(){
     document.getElementById('quick-punch').style.display='block';
     await loadTodayRecord();
 
-    // 登録完了トースト
     const toast = document.getElementById('punch-toast');
     toast.textContent = `登録完了！社員番号：${newEmp.employee_no}`;
     toast.style.cssText='display:block;margin:12px 24px 0;padding:12px 16px;border-radius:10px;font-size:13px;text-align:center;background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.4);color:var(--text)';
@@ -552,9 +633,9 @@ window.doRegisterEmployee = async function(){
   }catch(e){
     errEl.textContent = e.message || '登録に失敗しました';
     errEl.style.display='block';
-    btn.textContent='登録する'; btn.disabled=false;
+    if(btn){ btn.textContent='登録する'; btn.disabled=false; }
   }
-};
+}
 
 async function loadTodayRecord(){
   const { data } = await sb.from('tc_timecard_records')
@@ -842,7 +923,7 @@ function renderAdminToday(){
   if(!rows.length){ document.getElementById('today-rows').innerHTML='<div class="loading">社員が登録されていません</div>'; return; }
   document.getElementById('today-rows').innerHTML=rows.map(({emp,rec,st})=>{
     const w=calcWork(rec,(st==='勤務中'||st==='休憩中')?now:undefined);
-    return `<div class="arow" style="margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,34)}">${avText(emp.name)}</div><div style="flex:1"><div class="noto" style="font-size:13px;color:var(--text)">${emp.name}</div><div style="font-size:11px;color:${SC[st]};margin-top:2px">● ${st}</div></div><div style="text-align:right">${w!=null?`<div class="mono" style="font-size:14px;color:var(--text)">${fmtDur(w)}</div>`:''}<div style="font-size:10px;color:var(--muted);margin-top:2px">${rec?.clock_in?'出 '+fmtTime(rec.clock_in):''}${rec?.clock_out?' 退 '+fmtTime(rec.clock_out):''}</div></div></div>`;
+    return `<div class="arow" style="margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,34)}">${avText(emp.name)}</div><div style="flex:1"><div class="noto" style="font-size:13px;color:var(--text)">${emp.name}<span style="font-size:10px;color:var(--muted);margin-left:6px">${emp.employee_no}</span></div><div style="font-size:11px;color:${SC[st]};margin-top:2px">● ${st}</div></div><div style="text-align:right">${w!=null?`<div class="mono" style="font-size:14px;color:var(--text)">${fmtDur(w)}</div>`:''}<div style="font-size:10px;color:var(--muted);margin-top:2px">${rec?.clock_in?'出 '+fmtTime(rec.clock_in):''}${rec?.clock_out?' 退 '+fmtTime(rec.clock_out):''}</div></div></div>`;
   }).join('');
 }
 
@@ -851,7 +932,7 @@ function renderAdminHistory(){
   if(!allEmployees.length){ document.getElementById('history-rows').innerHTML='<div class="loading">社員が登録されていません</div>'; return; }
   document.getElementById('history-rows').innerHTML=allEmployees.map(emp=>{
     const days=allRecords.filter(r=>r.employee_id===emp.id).slice(0,7);
-    return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,26)}">${avText(emp.name)}</div><span class="noto" style="font-size:13px;color:var(--text)">${emp.name}</span></div>${!days.length?'<div style="font-size:12px;color:var(--subtle);padding-left:34px">記録なし</div>':days.map(r=>{const w=calcWork(r);return`<div style="display:flex;gap:8px;align-items:center;padding-left:34px;padding-bottom:7px;font-size:12px"><span style="color:var(--muted);width:36px">${fmtShort(r.work_date)}</span><span style="color:var(--muted)">出: ${fmtTime(r.clock_in)}</span><span style="color:var(--muted)">退: ${fmtTime(r.clock_out)}</span><span style="margin-left:auto;font-family:'DM Mono',monospace;color:${w?'var(--text)':'var(--subtle)'}">${fmtDur(w)}</span></div>`;}).join('')}</div>`;
+    return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,26)}">${avText(emp.name)}</div><span class="noto" style="font-size:13px;color:var(--text)">${emp.name}</span><span style="font-size:10px;color:var(--muted)">${emp.employee_no}</span></div>${!days.length?'<div style="font-size:12px;color:var(--subtle);padding-left:34px">記録なし</div>':days.map(r=>{const w=calcWork(r);return`<div style="display:flex;gap:8px;align-items:center;padding-left:34px;padding-bottom:7px;font-size:12px"><span style="color:var(--muted);width:36px">${fmtShort(r.work_date)}</span><span style="color:var(--muted)">出: ${fmtTime(r.clock_in)}</span><span style="color:var(--muted)">退: ${fmtTime(r.clock_out)}</span><span style="margin-left:auto;font-family:'DM Mono',monospace;color:${w?'var(--text)':'var(--subtle)'}">${fmtDur(w)}</span></div>`;}).join('')}</div>`;
   }).join('');
 }
 
@@ -875,7 +956,7 @@ function renderAdminSummary(){
       return `<div style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
           <div class="avatar" style="${avStyle(emp.name,26)}">${avText(emp.name)}</div>
-          <span class="noto" style="font-size:13px;color:var(--text);flex:1">${emp.name}</span>
+          <span class="noto" style="font-size:13px;color:var(--text);flex:1">${emp.name}<span style="font-size:10px;color:var(--muted);margin-left:6px">${emp.employee_no}</span></span>
           <span class="mono" style="font-size:15px;color:var(--text);font-weight:600">${fmtDur(tot)}</span>
           <span style="font-size:12px;color:var(--muted);width:34px;text-align:right">${wk}日</span>
         </div>
@@ -912,7 +993,7 @@ function renderAdminEdit(){
   if(!allEmployees.length){ document.getElementById('edit-rows').innerHTML='<div class="loading">社員が登録されていません</div>'; return; }
   document.getElementById('edit-rows').innerHTML=allEmployees.map(emp=>{
     const days=allRecords.filter(r=>r.employee_id===emp.id).slice(0,14);
-    return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,26)}">${avText(emp.name)}</div><span class="noto" style="font-size:13px;color:var(--text)">${emp.name}</span></div>${!days.length?'<div style="font-size:12px;color:var(--subtle);padding-left:34px">記録なし</div>':days.map(r=>{const w=calcWork(r);return`<div style="display:flex;gap:6px;align-items:center;padding-left:34px;padding-bottom:8px;font-size:12px"><span style="color:var(--muted);width:36px">${fmtShort(r.work_date)}</span><span style="color:var(--muted)">出: ${fmtTime(r.clock_in)}</span><span style="color:var(--muted)">退: ${fmtTime(r.clock_out)}</span><span style="margin-left:auto;font-family:'DM Mono',monospace;color:${w?'var(--text)':'var(--subtle)'};margin-right:8px">${fmtDur(w)}</span><button onclick="openEditModal('${r.id}','${emp.name}','${r.work_date}','${r.clock_in||''}','${r.clock_out||''}')" style="background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);color:var(--blue);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">編集</button></div>`;}).join('')}</div>`;
+    return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="avatar" style="${avStyle(emp.name,26)}">${avText(emp.name)}</div><span class="noto" style="font-size:13px;color:var(--text)">${emp.name}</span><span style="font-size:10px;color:var(--muted)">${emp.employee_no}</span></div>${!days.length?'<div style="font-size:12px;color:var(--subtle);padding-left:34px">記録なし</div>':days.map(r=>{const w=calcWork(r);return`<div style="display:flex;gap:6px;align-items:center;padding-left:34px;padding-bottom:8px;font-size:12px"><span style="color:var(--muted);width:36px">${fmtShort(r.work_date)}</span><span style="color:var(--muted)">出: ${fmtTime(r.clock_in)}</span><span style="color:var(--muted)">退: ${fmtTime(r.clock_out)}</span><span style="margin-left:auto;font-family:'DM Mono',monospace;color:${w?'var(--text)':'var(--subtle)'};margin-right:8px">${fmtDur(w)}</span><button onclick="openEditModal('${r.id}','${emp.name}','${r.work_date}','${r.clock_in||''}','${r.clock_out||''}')" style="background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);color:var(--blue);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">編集</button></div>`;}).join('')}</div>`;
   }).join('');
 }
 
