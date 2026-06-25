@@ -130,7 +130,7 @@
         <div id="sum-trial" class="summary-value" style="color:var(--yellow)">-</div>
       </div>
       <div class="summary-card">
-        <div class="summary-label">有料契約中</div>
+        <div class="summary-label">稼働中</div>
         <div id="sum-active" class="summary-value" style="color:var(--green)">-</div>
       </div>
       <div class="summary-card">
@@ -170,12 +170,12 @@
   <!-- プラン変更モーダル -->
   <div id="modal-plan" class="modal-overlay">
     <div class="modal">
-      <div class="modal-title">プラン変更</div>
+      <div class="modal-title">契約状態の変更</div>
       <div id="modal-company-name" style="font-size:14px;color:var(--muted);margin-bottom:16px"></div>
-      <div class="modal-label">プラン</div>
+      <div class="modal-label">契約状態</div>
       <select id="modal-plan-select" class="txt-input">
-        <option value="trial">trial（無料トライアル）</option>
-        <option value="active">active（有料契約中）</option>
+        <option value="trial">trial（トライアル中）</option>
+        <option value="active">active（稼働中）</option>
         <option value="suspended">suspended（停止中）</option>
       </select>
       <div class="modal-label" style="margin-top:12px">トライアル終了日</div>
@@ -241,9 +241,9 @@ window.loadData = async function(){
 
   // サマリー集計
   document.getElementById('sum-total').textContent     = allCompanies.length;
-  document.getElementById('sum-trial').textContent     = allCompanies.filter(c=>c.plan==='trial').length;
-  document.getElementById('sum-active').textContent    = allCompanies.filter(c=>c.plan==='active').length;
-  document.getElementById('sum-suspended').textContent = allCompanies.filter(c=>c.plan==='suspended').length;
+  document.getElementById('sum-trial').textContent     = allCompanies.filter(c=>c.status==='trial').length;
+  document.getElementById('sum-active').textContent    = allCompanies.filter(c=>c.status==='active').length;
+  document.getElementById('sum-suspended').textContent = allCompanies.filter(c=>c.status==='suspended').length;
 
   renderCompanies();
   renderExpiring();
@@ -265,7 +265,7 @@ function renderCompanies(){
           <th>会社コード</th>
           <th>管理者</th>
           <th>社員数</th>
-          <th>プラン</th>
+          <th>状態 / 課金</th>
           <th>トライアル終了</th>
           <th>登録日</th>
           <th>操作</th>
@@ -274,8 +274,10 @@ function renderCompanies(){
       <tbody>
         ${allCompanies.map(c => {
           const empCount = c.tc_employees?.[0]?.count || 0;
-          const planClass = c.plan==='active'?'plan-active':c.plan==='suspended'?'plan-suspended':'plan-trial';
-          const planLabel = c.plan==='active'?'有料':c.plan==='suspended'?'停止':'トライアル';
+          const statusClass = c.status==='active'?'plan-active':c.status==='suspended'?'plan-suspended':'plan-trial';
+          const statusLabel = c.status==='active'?'稼働中':c.status==='suspended'?'停止':'トライアル';
+          const tierLabel = c.plan==='paid'?'有料':'無料';
+          const tierColor = c.plan==='paid'?'var(--green)':'var(--muted)';
           const trialEnd  = c.trial_ends_at ? new Date(c.trial_ends_at) : null;
           const now       = new Date();
           const daysLeft  = trialEnd ? Math.ceil((trialEnd-now)/(1000*60*60*24)) : null;
@@ -294,11 +296,14 @@ function renderCompanies(){
               <div style="font-size:11px;color:var(--muted)">${c.admin_email||''}</div>
             </td>
             <td style="text-align:center">${empCount}名</td>
-            <td><span class="plan-badge ${planClass}">${planLabel}</span></td>
+            <td>
+              <span class="plan-badge ${statusClass}">${statusLabel}</span>
+              <span style="font-size:10px;color:${tierColor};margin-left:6px">${tierLabel}</span>
+            </td>
             <td class="${trialClass}">${trialStr}${daysLeft!==null&&daysLeft>0?`<br><span style="font-size:10px">残${daysLeft}日</span>`:''}</td>
             <td style="font-size:12px;color:var(--muted)">${new Date(c.created_at).toLocaleDateString('ja-JP')}</td>
             <td>
-              <button class="btn-action" onclick="openPlanModal('${c.id}')">プラン変更</button>
+              <button class="btn-action" onclick="openPlanModal('${c.id}')">状態変更</button>
             </td>
           </tr>`;
         }).join('')}
@@ -310,7 +315,7 @@ function renderCompanies(){
 function renderExpiring(){
   const now = new Date();
   const soon = allCompanies.filter(c => {
-    if(c.plan !== 'trial' || !c.trial_ends_at) return false;
+    if(c.status !== 'trial' || !c.trial_ends_at) return false;
     const end = new Date(c.trial_ends_at);
     const days = Math.ceil((end-now)/(1000*60*60*24));
     return days <= 7;
@@ -338,7 +343,7 @@ function renderExpiring(){
             <td><span style="font-family:'DM Mono',monospace;color:var(--accent)">${c.company_code}</span></td>
             <td class="${cls}">${end.toLocaleDateString('ja-JP')}</td>
             <td class="${cls}" style="font-weight:600">${days<=0?'期限切れ':days+'日'}</td>
-            <td><button class="btn-action" onclick="openPlanModal('${c.id}')">プラン変更</button></td>
+            <td><button class="btn-action" onclick="openPlanModal('${c.id}')">状態変更</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -359,7 +364,7 @@ window.openPlanModal = function(id){
   if(!company) return;
   editingCompanyId = id;
   document.getElementById('modal-company-name').textContent = company.name;
-  document.getElementById('modal-plan-select').value = company.plan || 'trial';
+  document.getElementById('modal-plan-select').value = company.status || 'trial';
   const trialEnd = company.trial_ends_at ? company.trial_ends_at.slice(0,10) : '';
   document.getElementById('modal-trial-end').value = trialEnd;
   document.getElementById('modal-plan').classList.add('open');
@@ -372,13 +377,17 @@ window.closeModal = function(){
 
 window.savePlan = async function(){
   if(!editingCompanyId) return;
-  const plan     = document.getElementById('modal-plan-select').value;
+  const status   = document.getElementById('modal-plan-select').value;
   const trialEnd = document.getElementById('modal-trial-end').value;
-  const { error } = await sb.from('tc_companies').update({
-    plan,
-    trial_ends_at: trialEnd ? new Date(trialEnd).toISOString() : null
-  }).eq('id', editingCompanyId);
-  if(error){ alert('保存エラー: '+error.message); return; }
+  const { error } = await sb.rpc('admin_set_company_status', {
+    p_company_id: editingCompanyId,
+    p_status:     status,
+    p_trial_ends: trialEnd ? new Date(trialEnd).toISOString() : null
+  });
+  if(error){
+    alert(/superadmin/.test(error.message) ? '管理者権限がありません' : '保存エラー: '+error.message);
+    return;
+  }
   closeModal();
   await loadData();
 };

@@ -926,8 +926,8 @@ window.doAdminLogin = async function(){
     return;
   }
 
-  // トライアル期限チェック
-  if(company.plan==='trial' && company.trial_ends_at){
+  // トライアル期限チェック（契約状態 status で判定）
+  if(company.status==='trial' && company.trial_ends_at){
     const expired = new Date(company.trial_ends_at) < new Date();
     if(expired){
       errEl.textContent='トライアル期間が終了しています。tamulab（tamulab.jp@gmail.com）にお問い合わせください';
@@ -936,7 +936,7 @@ window.doAdminLogin = async function(){
       return;
     }
   }
-  if(company.plan==='suspended'){
+  if(company.status==='suspended'){
     errEl.textContent='このアカウントは停止中です。tamulab（tamulab.jp@gmail.com）にお問い合わせください';
     errEl.style.display='block';
     await sb.auth.signOut();

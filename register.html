@@ -276,7 +276,8 @@ window.doRegister = async function(){
       break_mode:     'auto',
       break_fixed_min:0,
       gps_mode:       'record',
-      plan:           'trial',
+      plan:           'free',     // 課金ティア（free / paid）
+      status:         'trial',    // 契約状態（trial / active / suspended）
       trial_ends_at:  trialEndsAt.toISOString(),
     }).select().single();
 
