@@ -205,7 +205,7 @@
         </div>
       </div>
     </div>
-    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.2 · 2026-06-16</div>
+    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.3 · 2026-06-25</div>
   </div>
 
   <!-- 打刻詳細画面 -->
@@ -564,6 +564,41 @@ window.loginAsEmployee = function(emp){
   loadTodayRecord();
 };
 
+// ══════════════════════════════════════════════
+// 従業員数上限チェック（free=3人固定 / paid=employee_limit）
+// ══════════════════════════════════════════════
+const FREE_PLAN_EMPLOYEE_LIMIT = 3;
+
+async function checkEmployeeLimit(){
+  // 現在の在籍中社員数を取得
+  const { count, error } = await sb.from('tc_employees')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', currentCompany.id)
+    .eq('is_active', true);
+
+  if(error){
+    // カウント取得に失敗した場合は安全側に倒して登録を許可しない
+    return { ok:false, message:'人数確認中にエラーが発生しました。もう一度お試しください' };
+  }
+
+  const plan = currentCompany.plan || 'free';
+  let limit;
+  if(plan === 'free'){
+    limit = FREE_PLAN_EMPLOYEE_LIMIT;
+  } else {
+    limit = currentCompany.employee_limit; // nullなら無制限
+  }
+
+  if(limit != null && count >= limit){
+    const planLabel = plan === 'free' ? '無料プラン' : '有料プラン';
+    return {
+      ok:false,
+      message:`${planLabel}の登録上限（${limit}人）に達しています。tamulab（tamulab.jp@gmail.com）にお問い合わせください`
+    };
+  }
+  return { ok:true };
+}
+
 window.doRegisterEmployee = async function(){
   const name = document.getElementById('new-emp-name').value.trim();
   const errEl = document.getElementById('new-emp-error');
@@ -572,6 +607,14 @@ window.doRegisterEmployee = async function(){
 
   if(!name){ errEl.textContent='氏名を入力してください'; errEl.style.display='block'; return; }
   if(!currentCompany){ errEl.textContent='先に会社コードを入力してください'; errEl.style.display='block'; return; }
+
+  // 人数上限チェック
+  const limitCheck = await checkEmployeeLimit();
+  if(!limitCheck.ok){
+    errEl.textContent = limitCheck.message;
+    errEl.style.display='block';
+    return;
+  }
 
   // 同名チェック
   const { data: dupes } = await sb.from('tc_employees')
@@ -605,6 +648,18 @@ window.doRegisterEmployee = async function(){
 // 別人として強制登録
 window.forceRegisterEmployee = async function(){
   const name = document.getElementById('new-emp-name').value.trim();
+  const errEl = document.getElementById('new-emp-error');
+
+  // 同名確認画面からの登録でも上限チェックを再実施（タイムラグ対策）
+  const limitCheck = await checkEmployeeLimit();
+  if(!limitCheck.ok){
+    document.getElementById('duplicate-check').style.display='none';
+    document.getElementById('register-btn-area').style.display='flex';
+    errEl.textContent = limitCheck.message;
+    errEl.style.display='block';
+    return;
+  }
+
   await _execRegister(name);
 };
 
@@ -1118,8 +1173,27 @@ function renderAdminSettings(){
   const company = currentCompany || JSON.parse(sessionStorage.getItem('tc_admin_company')||'null');
   if(!company){ document.getElementById('settings-form').innerHTML='<div class="loading">会社情報を読み込めませんでした</div>'; return; }
 
+  const plan = company.plan || 'free';
+  const planLabel = plan==='free' ? '無料プラン' : '有料プラン';
+  const limit = plan==='free' ? FREE_PLAN_EMPLOYEE_LIMIT : company.employee_limit;
+  const currentCount = allEmployees.length; // 在籍中のみ
+  const limitText = limit!=null ? `${currentCount} / ${limit} 人` : `${currentCount} 人（無制限）`;
+  const nearLimit = limit!=null && currentCount >= limit;
+
   document.getElementById('settings-form').innerHTML = `
     <div style="padding:16px 4px">
+
+      <div style="margin-bottom:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;color:var(--muted)">契約プラン</span>
+          <span style="font-size:12px;font-weight:600;color:${plan==='free'?'var(--yellow)':'var(--green)'}">${planLabel}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;color:var(--muted)">登録社員数</span>
+          <span style="font-size:13px;font-weight:600;color:${nearLimit?'var(--red)':'var(--text)'}">${limitText}</span>
+        </div>
+        ${nearLimit?`<div style="margin-top:10px;font-size:11px;color:var(--red)">上限に達しています。社員を増やすには有料プランへの切り替えが必要です。tamulab（tamulab.jp@gmail.com）にお問い合わせください</div>`:''}
+      </div>
 
       <div style="margin-bottom:20px">
         <div style="font-size:13px;color:var(--muted);margin-bottom:8px">時刻の丸め単位</div>
