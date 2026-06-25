@@ -205,7 +205,7 @@
         </div>
       </div>
     </div>
-    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.3 · 2026-06-25</div>
+    <div style="padding:24px 24px 8px;text-align:center;font-size:12px;color:var(--subtle);letter-spacing:.06em">v4.4 · 2026-06-25</div>
   </div>
 
   <!-- 打刻詳細画面 -->
@@ -530,6 +530,11 @@ window.showNewEmployeeForm = function(){
   document.getElementById('new-employee-form').style.display='block';
   document.getElementById('duplicate-check').style.display='none';
   document.getElementById('register-btn-area').style.display='flex';
+  document.getElementById('new-emp-name').value='';
+  document.getElementById('new-emp-error').style.display='none';
+  // 前回操作でボタンが「登録中...」のまま残っている場合に備えてリセット
+  const btn = document.querySelector('#register-btn-area button');
+  if(btn){ btn.textContent='登録する'; btn.disabled=false; }
   document.getElementById('new-emp-name').focus();
 };
 
@@ -540,6 +545,9 @@ window.hideNewEmployeeForm = function(){
   document.getElementById('new-emp-error').style.display='none';
   document.getElementById('duplicate-check').style.display='none';
   document.getElementById('register-btn-area').style.display='flex';
+  // ボタンの状態もリセット
+  const btn = document.querySelector('#register-btn-area button');
+  if(btn){ btn.textContent='登録する'; btn.disabled=false; }
 };
 
 // 同名社員を選んでログイン
